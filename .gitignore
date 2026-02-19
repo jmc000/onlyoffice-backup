@@ -1,0 +1,5 @@
+.env
+config.yaml
+todo.md
+output.log
+large-file-mocker/IMG.jpeg
