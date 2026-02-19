@@ -44,9 +44,9 @@ dirs:
 ```
 **Note:** 
 - `dirs` allow backing up documents (`.docx`, `.xlsx`, `.pptx`) at the root of the directories of the list. 
-- it means for example above, `/home/USER/Documents/journal.xlsx` will be backup, but not `/home/USER/Documents/todo.txt` nor `/home/USER/Documents/work/doc.docx`
+- it means with config example above, `/home/USER/Documents/journal.xlsx` will be backup, but not `/home/USER/Documents/todo.txt` nor `/home/USER/Documents/work/doc.docx`
 
-Or both:
+Or using both:
 ```yaml
 #config.yaml
 files:
@@ -56,12 +56,6 @@ files:
 dirs:
   - /home/USER/Documents/
 ```
-
-Note:
-- {".docx", ".xlsx", ".pptx"}
-
-**Notes:**
-- if `files` or `dirs` aren't use, just
 
 ### 5. Set python environment
 ```bash
