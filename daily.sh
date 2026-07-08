@@ -2,21 +2,42 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VENV_DIR="$SCRIPT_DIR/venv"
-SCRIPT="$SCRIPT_DIR/main.py"
-CONFIG_DIR="$SCRIPT_DIR/config.yaml"
-JOB_FILE="/etc/cron.daily/only-office-backup"
+UNIT_DIR="$HOME/.config/systemd/user"
+SERVICE_NAME="only-office-backup.service"
+TIMER_NAME="only-office-backup.timer"
 
-echo "Installing daily job..."
-sudo tee "$JOB_FILE" > /dev/null <<EOF
-#!/bin/bash
-"$VENV_DIR/bin/python" "$SCRIPT" --config "$CONFIG_DIR"
+mkdir -p "$UNIT_DIR"
+
+echo "Installing systemd user service + timer..."
+cat > "$UNIT_DIR/$SERVICE_NAME" <<EOF
+[Unit]
+Description=OnlyOffice backup
+
+[Service]
+Type=oneshot
+WorkingDirectory=$SCRIPT_DIR
+ExecStart=$SCRIPT_DIR/run.sh
 EOF
 
-sudo chmod +x "$JOB_FILE"
+cat > "$UNIT_DIR/$TIMER_NAME" <<EOF
+[Unit]
+Description=Run OnlyOffice backup daily
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
+systemctl --user daemon-reload
+systemctl --user enable --now "$TIMER_NAME"
 
 echo "Done!"
-echo "Script will run once a day."
-echo "    > View logs:    tail -f $SCRIPT_DIR/output.log"
-echo "    > Test it now:  sudo run-parts /etc/cron.daily"
-echo "🗑️  > To uninstall: sudo rm $JOB_FILE"
+echo "Timer installed and will run once a day."
+echo "    > View logs:      tail -f $SCRIPT_DIR/output.log"
+echo "    > View journal:   journalctl --user -u $SERVICE_NAME"
+echo "    > Check schedule: systemctl --user list-timers $TIMER_NAME"
+echo "    > Test it now:    systemctl --user start $SERVICE_NAME"
+echo "🗑️  > To uninstall:   systemctl --user disable --now $TIMER_NAME && rm $UNIT_DIR/$SERVICE_NAME $UNIT_DIR/$TIMER_NAME"

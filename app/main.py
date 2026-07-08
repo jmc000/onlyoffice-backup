@@ -204,11 +204,12 @@ if __name__ == "__main__":
     if not api_key or not docspace_url:
         raise EnvironmentError("API_KEY and DOCSPACE_URL must be set")
 
-    logging.basicConfig(filename='output.log', level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config", default="config.yaml", help="Path to config file")
+    parser.add_argument("-l", "--log-file", default="output.log", help="Path to log file")
     args = parser.parse_args()
+
+    logging.basicConfig(filename=args.log_file, level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
     logging.info(f"Loading config file: {args.config}")
     try:
