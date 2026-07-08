@@ -10,6 +10,15 @@ from dotenv import load_dotenv
 from requests.adapters import HTTPAdapter, Retry
 from datetime import datetime, timezone
 from contextlib import contextmanager
+from pydantic import ValidationError
+
+from models import (
+    CreateUploadSessionReturnedResponse,
+    GetMyDocumentsFolderIdReturnedResponse,
+    UploadChunkReturnedResponse,
+    UploadReturnedResponse,
+)
+
 
 class OnlyOfficeUploader:
     def __init__(self, api_key: str, docspace_url: str, health_check_url: str):
@@ -39,10 +48,10 @@ class OnlyOfficeUploader:
     def _fail_on_error(self):
         try:
             yield
-        except (requests.exceptions.RequestException, OSError, RuntimeError) as e:
+        except (requests.exceptions.RequestException, OSError, RuntimeError, AttributeError, ValidationError) as e:
             logging.error(f"Error: {e}")
             self.health_check_fail()
-
+    
     def _get_mydocuments_folder_id(self):
         with self._fail_on_error():
             response = self._session.get(
@@ -50,7 +59,8 @@ class OnlyOfficeUploader:
                 headers=self._headers
             )
             response.raise_for_status()
-            folder_id = response.json()["response"]["current"]["id"]
+            parsed_response = GetMyDocumentsFolderIdReturnedResponse.model_validate(response.json())
+            folder_id = parsed_response.response.current.id
             return folder_id
 
     def _create_session(self) -> requests.Session:
@@ -112,16 +122,18 @@ class OnlyOfficeUploader:
                 return
 
             with open(file, 'rb') as f:
-                response = self._session.post(
+                http_response = self._session.post(
                     f"{self._docspace_url}/api/2.0/files/{self.folder_id}/upload",
                     headers=self._headers,
                     files={'file': f},
                     data={'CreateNewIfExist': True}
                 )
-                response.raise_for_status()
-                result = response.json()
-                logging.info(f"File: {result['response']['title']} uploaded successfully!")
-                logging.info(f"\tVersion: {result['response']['version']}")
+                http_response.raise_for_status()
+                result = http_response.json()
+                parsed_result = UploadReturnedResponse.model_validate(result)
+
+                logging.info(f"File: {parsed_result.response[0].title} uploaded successfully!")
+                logging.info(f"\tVersion: {parsed_result.response[0].version}")
 
     def _upload_large_file(self, file: str, file_size_bytes: int):
         logging.info("Uploading large file in chunks")
@@ -146,8 +158,8 @@ class OnlyOfficeUploader:
                 json=payload
             )
             response.raise_for_status()
-            session_data = response.json()
-            upload_location = session_data["response"]["data"]["location"]
+            parsed_response = CreateUploadSessionReturnedResponse.model_validate(response.json())
+            upload_location = parsed_response.response.data.location
 
             # 2. upload chunks
             with open(file, 'rb') as f:
@@ -171,15 +183,16 @@ class OnlyOfficeUploader:
                     )
                     response.raise_for_status()
                     response_data = response.json()
-                    request_success = response_data["success"]
+                    parsed_response = UploadChunkReturnedResponse.model_validate(response_data)
+                    request_success = parsed_response.success
 
                     # Status code can be 200 but success = failed
                     if not request_success:
                         raise requests.exceptions.RequestException(
-                            f"Error uploading chunk {chunk_id}:\n{json.dumps(response_data, indent=2)}"
+                            f"Error uploading chunk {chunk_id}:\n{json.dumps(parsed_response.model_dump(), indent=2)}"
                         )
 
-                version = response_data['data']['file']['version']
+                version = parsed_response.data.file.version
                 logging.info(f"File: {file} uploaded in chunks successfully!")
                 logging.info(f"\tVersion: {version}")
 
