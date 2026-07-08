@@ -5,6 +5,10 @@ set -euo pipefail
 CONFIG="${1:-$SCRIPT_DIR/config.yaml}"
 ENV_FILE="${2:-$SCRIPT_DIR/.env}"
 
+IMAGE_NAME="ghcr.io/jmc000/onlyoffice-backup"
+TAG="$(grep -m1 '^TAG=' "$ENV_FILE" | cut -d '=' -f2-)"
+TAG="${TAG:?set TAG in $ENV_FILE, e.g. TAG=<commit-sha>}"
+
 # Reuse the venv to use PyYAML
 mapfile -t TARGETS < <("$SCRIPT_DIR/venv/bin/python" -c "
 import yaml
@@ -24,6 +28,6 @@ podman run --rm --env-file "$ENV_FILE" \
   -v "$SCRIPT_DIR/config.yaml:/app/config.yaml:ro,z" \
   -v "$SCRIPT_DIR/output.log:/app/output.log:z" \
   "${VOLUME_ARGS[@]}" \
-  localhost/onlyoffice-backup:1.1
+  "${IMAGE_NAME}:${TAG}"
 
 
